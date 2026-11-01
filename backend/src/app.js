@@ -5,6 +5,7 @@ import morgan from 'morgan'
 import mongoose from 'mongoose'
 import { successResponse, errorResponse } from './utils/apiResponse.js'
 import { errorHandler } from './middleware/errorHandler.js'
+import { checkMLServiceHealth } from './utils/mlClient.js'
 
 const app = express()
 
@@ -22,21 +23,25 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'))
 }
 
-// Service Identification & Health Check
-app.get('/api/health', (req, res) => {
+// Service Identification & Integrated System Health Check
+app.get('/api/health', async (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  const mlServiceHealth = await checkMLServiceHealth()
+
+  const allHealthy = dbStatus === 'connected' && mlServiceHealth.status === 'connected'
 
   return successResponse(res, {
     service: 'opsmind-backend',
-    status: 'healthy',
+    status: allHealthy ? 'healthy' : 'partially_degraded',
     database: {
       status: dbStatus,
-      host: mongoose.connection.host || 'unconnected',
+      host: mongoose.connection.host || 'localhost',
       name: mongoose.connection.name || 'opsmind',
     },
+    mlService: mlServiceHealth,
     uptime: `${Math.floor(process.uptime())}s`,
     environment: process.env.NODE_ENV || 'development',
-  }, 'OpsMind Backend Service is running')
+  }, allHealthy ? 'All OpsMind Core Services are operational' : 'Some services are starting or unreachable')
 })
 
 // Base Endpoint

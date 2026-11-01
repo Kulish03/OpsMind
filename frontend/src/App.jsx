@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Activity,
   AlertTriangle,
@@ -6,9 +6,14 @@ import {
   Bot,
   Box,
   CheckCircle2,
+  Database,
   DollarSign,
+  RefreshCw,
+  Server,
+  Sparkles,
   TrendingUp,
-  Users
+  Users,
+  XCircle
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -19,6 +24,7 @@ import {
   Tooltip,
   CartesianGrid
 } from 'recharts'
+import api from './services/api'
 
 const sampleSalesData = [
   { day: 'Mon', revenue: 2400, forecast: 2200 },
@@ -31,47 +37,143 @@ const sampleSalesData = [
 ]
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('overview')
+  const [systemHealth, setSystemHealth] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [lastChecked, setLastChecked] = useState(null)
+
+  const fetchHealth = async () => {
+    setLoading(true)
+    try {
+      const response = await api.get('/health')
+      setSystemHealth(response.data)
+      setLastChecked(new Date().toLocaleTimeString())
+    } catch (err) {
+      console.warn('Backend not responding yet:', err)
+      setSystemHealth(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchHealth()
+  }, [])
+
+  const isBackendHealthy = systemHealth?.status === 'healthy' || systemHealth?.status === 'partially_degraded'
+  const isDbHealthy = systemHealth?.database?.status === 'connected'
+  const isMlHealthy = systemHealth?.mlService?.status === 'connected'
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
       {/* Top Navigation */}
       <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/20">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
             <Bot className="w-6 h-6 text-white" />
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-              OpsMind <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-400 border border-brand-500/30">Phase 0 Skeleton</span>
+              OpsMind <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Phase 0 Foundation</span>
             </h1>
             <p className="text-xs text-slate-400">AI-Powered Operations Copilot for SMEs</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 border border-slate-700 text-xs text-emerald-400">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>Frontend & Styling Verified</span>
-          </div>
-        </div>
+        <button
+          onClick={fetchHealth}
+          disabled={loading}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700 text-xs text-slate-300 transition-colors"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-emerald-400' : ''}`} />
+          <span>Refresh Status</span>
+          {lastChecked && <span className="text-slate-500 text-[10px]">({lastChecked})</span>}
+        </button>
       </header>
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
-        {/* Welcome Banner */}
-        <section className="rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-850 p-6 shadow-xl relative overflow-hidden">
-          <div className="relative z-10 max-w-2xl space-y-2">
-            <div className="inline-flex items-center gap-2 text-xs font-medium text-brand-400 bg-brand-500/10 px-3 py-1 rounded-full border border-brand-500/20">
-              <Activity className="w-3.5 h-3.5" />
-              <span>Foundation Verified</span>
-            </div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">
-              Ready for Incremental Development
+        {/* Architecture Service Health Cards */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-emerald-400" />
+              Service Communication & Inter-Tier Health
             </h2>
-            <p className="text-sm text-slate-400 leading-relaxed">
-              React 18, Vite 6, Tailwind CSS 3, Lucide Icons, and Recharts have been configured and verified. Next, we will connect the Express backend and FastAPI ML service.
-            </p>
+            <span className="text-xs text-slate-500">Auto-detected via Node.js Express Gateway</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Frontend Card */}
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Frontend Client</p>
+                  <p className="text-sm font-semibold text-white">React + Vite</p>
+                  <p className="text-[11px] text-slate-500">Port 5173</p>
+                </div>
+              </div>
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            </div>
+
+            {/* Backend Card */}
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${isBackendHealthy ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                  <Server className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Main Backend</p>
+                  <p className="text-sm font-semibold text-white">Express.js</p>
+                  <p className="text-[11px] text-slate-500">Port 5000 &bull; {isBackendHealthy ? 'Running' : 'Offline'}</p>
+                </div>
+              </div>
+              {isBackendHealthy ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              ) : (
+                <XCircle className="w-5 h-5 text-rose-500" />
+              )}
+            </div>
+
+            {/* Database Card */}
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${isDbHealthy ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Data Store</p>
+                  <p className="text-sm font-semibold text-white">MongoDB</p>
+                  <p className="text-[11px] text-slate-500">Port 27017 &bull; {isDbHealthy ? 'Connected' : 'Disconnected'}</p>
+                </div>
+              </div>
+              {isDbHealthy ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              ) : (
+                <XCircle className="w-5 h-5 text-rose-500" />
+              )}
+            </div>
+
+            {/* ML & AI Service Card */}
+            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${isMlHealthy ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">ML & AI Service</p>
+                  <p className="text-sm font-semibold text-white">Python FastAPI</p>
+                  <p className="text-[11px] text-slate-500">Port 8000 &bull; {isMlHealthy ? 'Connected' : 'Offline'}</p>
+                </div>
+              </div>
+              {isMlHealthy ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+              ) : (
+                <XCircle className="w-5 h-5 text-rose-500" />
+              )}
+            </div>
           </div>
         </section>
 
@@ -88,7 +190,7 @@ export default function App() {
                 +12.4% <ArrowUpRight className="w-3.5 h-3.5 ml-0.5" />
               </span>
             </div>
-            <p className="text-xs text-slate-500">Computed via server aggregation</p>
+            <p className="text-xs text-slate-500">Aggregated via Express & MongoDB</p>
           </div>
 
           <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
@@ -100,7 +202,7 @@ export default function App() {
               <span className="text-2xl font-bold text-white">4,280</span>
               <span className="text-xs text-slate-400">SKUs tracked</span>
             </div>
-            <p className="text-xs text-slate-500">Syncs with inventory ledger</p>
+            <p className="text-xs text-slate-500">Tenant-isolated catalog</p>
           </div>
 
           <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
@@ -112,7 +214,7 @@ export default function App() {
               <span className="text-2xl font-bold text-amber-400">14 Items</span>
               <span className="text-xs text-amber-500/80 font-medium">Needs Review</span>
             </div>
-            <p className="text-xs text-slate-500">Evaluated by ML demand model</p>
+            <p className="text-xs text-slate-500">Evaluated by FastAPI ML Service</p>
           </div>
 
           <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 space-y-3">
@@ -133,7 +235,7 @@ export default function App() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-semibold text-white">Weekly Revenue vs. Projected Demand</h3>
-              <p className="text-xs text-slate-400">Verifying Recharts rendering with Tailwind palette</p>
+              <p className="text-xs text-slate-400">Recharts rendering linked to design system</p>
             </div>
             <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
@@ -176,7 +278,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 px-6 py-4 text-center text-xs text-slate-500">
-        OpsMind SME Operations Platform &bull; Phase 0 Foundation Verification
+        OpsMind SME Operations Platform &bull; Phase 0 Foundation Complete
       </footer>
     </div>
   )
