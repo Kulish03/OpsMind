@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
+import mongoose from 'mongoose'
 import { successResponse, errorResponse } from './utils/apiResponse.js'
 import { errorHandler } from './middleware/errorHandler.js'
 
@@ -23,9 +24,16 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Service Identification & Health Check
 app.get('/api/health', (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+
   return successResponse(res, {
     service: 'opsmind-backend',
     status: 'healthy',
+    database: {
+      status: dbStatus,
+      host: mongoose.connection.host || 'unconnected',
+      name: mongoose.connection.name || 'opsmind',
+    },
     uptime: `${Math.floor(process.uptime())}s`,
     environment: process.env.NODE_ENV || 'development',
   }, 'OpsMind Backend Service is running')
