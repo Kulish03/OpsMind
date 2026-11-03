@@ -1,3 +1,6 @@
 export { Product } from './product.model.js'
 export { Customer } from './customer.model.js'
 export { Sale } from './sale.model.js'
+export { Supplier } from './supplier.model.js'
+export { Expense } from './expense.model.js'
+export { InventoryMovement } from './inventoryMovement.model.js'
