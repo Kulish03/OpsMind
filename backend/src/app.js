@@ -7,6 +7,7 @@ import { successResponse, errorResponse } from './utils/apiResponse.js'
 import { errorHandler } from './middleware/errorHandler.js'
 import { checkMLServiceHealth } from './utils/mlClient.js'
 import authRouter from './modules/auth/auth.routes.js'
+import businessRouter from './modules/business/business.routes.js'
 
 const app = express()
 
@@ -26,6 +27,7 @@ if (process.env.NODE_ENV !== 'test') {
 
 // Mount Authentication & Tenancy Routes
 app.use('/api/auth', authRouter)
+app.use('/api/businesses', businessRouter)
 
 // Service Identification & Integrated System Health Check
 app.get('/api/health', async (req, res) => {
