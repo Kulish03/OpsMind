@@ -9,6 +9,7 @@ import { checkMLServiceHealth } from './utils/mlClient.js'
 import authRouter from './modules/auth/auth.routes.js'
 import businessRouter from './modules/business/business.routes.js'
 import productRouter from './modules/business/product.routes.js'
+import saleRouter from './modules/business/sale.routes.js'
 
 const app = express()
 
@@ -30,6 +31,7 @@ if (process.env.NODE_ENV !== 'test') {
 app.use('/api/auth', authRouter)
 app.use('/api/businesses', businessRouter)
 app.use('/api/products', productRouter)
+app.use('/api/sales', saleRouter)
 
 // Service Identification & Integrated System Health Check
 app.get('/api/health', async (req, res) => {
