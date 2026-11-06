@@ -12,6 +12,7 @@ import productRouter from './modules/business/product.routes.js'
 import saleRouter from './modules/business/sale.routes.js'
 import inventoryRouter from './modules/business/inventory.routes.js'
 import customerRouter from './modules/business/customer.routes.js'
+import supplierRouter from './modules/business/supplier.routes.js'
 
 const app = express()
 
@@ -36,6 +37,7 @@ app.use('/api/products', productRouter)
 app.use('/api/sales', saleRouter)
 app.use('/api/inventory', inventoryRouter)
 app.use('/api/customers', customerRouter)
+app.use('/api/suppliers', supplierRouter)
 
 // Service Identification & Integrated System Health Check
 app.get('/api/health', async (req, res) => {
