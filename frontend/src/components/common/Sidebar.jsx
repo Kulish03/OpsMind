@@ -10,11 +10,13 @@ import {
   Truck,
   Sparkles,
   Bot,
+  ShieldAlert,
 } from 'lucide-react'
 
 export const Sidebar = ({ onCloseMobile }) => {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Alerts', path: '/alerts', icon: ShieldAlert },
     { name: 'Sales', path: '/sales', icon: ShoppingCart },
     { name: 'Products', path: '/products', icon: Package },
     { name: 'Inventory', path: '/inventory', icon: Boxes },

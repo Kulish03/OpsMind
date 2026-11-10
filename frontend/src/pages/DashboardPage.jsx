@@ -11,6 +11,7 @@ import {
   Calendar,
   Layers,
   Sparkles,
+  ShieldAlert,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -22,7 +23,6 @@ import {
   Tooltip,
   CartesianGrid,
   ResponsiveContainer,
-  Legend,
 } from 'recharts'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
@@ -30,7 +30,10 @@ import { formatCurrency, formatNumber, formatPercent } from '../utils/formatters
 import StatCard from '../components/common/StatCard'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import { AlertBanner } from '../components/common/AlertBanner'
-import { StatusBadge } from '../components/common/Badge'
+import AlertCenter from '../components/alerts/AlertCenter'
+import DateOverDateComparison from '../components/dashboard/DateOverDateComparison'
+import RevenueVsExpenseChart from '../components/dashboard/RevenueVsExpenseChart'
+import ProductPerformanceDeepDive from '../components/dashboard/ProductPerformanceDeepDive'
 
 export const DashboardPage = () => {
   const { currency } = useAuth()
@@ -41,8 +44,6 @@ export const DashboardPage = () => {
   const [kpis, setKpis] = useState(null)
   const [revenueTrend, setRevenueTrend] = useState([])
   const [categoryBreakdown, setCategoryBreakdown] = useState([])
-  const [topProducts, setTopProducts] = useState([])
-  const [lowStockAlerts, setLowStockAlerts] = useState([])
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true)
@@ -60,19 +61,15 @@ export const DashboardPage = () => {
         queryParams = `?startDate=${d.toISOString().split('T')[0]}`
       }
 
-      const [kpiRes, trendRes, categoryRes, topProdRes, lowStockRes] = await Promise.all([
+      const [kpiRes, trendRes, categoryRes] = await Promise.all([
         api.get(`/analytics/kpis${queryParams}`),
         api.get(`/analytics/revenue-trend${queryParams}`),
         api.get(`/analytics/category-breakdown${queryParams}`),
-        api.get(`/analytics/top-products?limit=5`),
-        api.get(`/products/alerts/low-stock?limit=6`),
       ])
 
       setKpis(kpiRes.data || null)
       setRevenueTrend(trendRes.data?.trend || [])
       setCategoryBreakdown(categoryRes.data?.categories || [])
-      setTopProducts(topProdRes.data?.topProducts || [])
-      setLowStockAlerts(lowStockRes.data?.products || [])
     } catch (err) {
       console.error('Failed to load analytics dashboard:', err)
       setError(err.response?.data?.message || err.message || 'Unable to load dashboard data')
@@ -95,7 +92,6 @@ export const DashboardPage = () => {
   const netMargin = profitability?.netProfitMarginPercentage
   const inventoryValuation = balanceMetrics?.inventoryValuationAtCost
   const activeSkus = balanceMetrics?.totalActiveSkus
-  const totalCustomers = balanceMetrics?.totalCustomers
 
   return (
     <div className="space-y-6">
@@ -106,7 +102,7 @@ export const DashboardPage = () => {
             Operations & Financial Overview
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Real-time business performance, margins, and operational health
+            Real-time business performance, margins, cashflow, and rule-based operational alerts
           </p>
         </div>
 
@@ -129,7 +125,10 @@ export const DashboardPage = () => {
 
       {error && <AlertBanner type="error" message={error} onDismiss={() => setError(null)} />}
 
-      {/* Primary KPI Grid (6 metrics) */}
+      {/* 1. Rule-Based Alert Center Hub */}
+      <AlertCenter />
+
+      {/* 2. Primary KPI Grid (6 metrics) */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard
           title="Total Revenue"
@@ -175,7 +174,10 @@ export const DashboardPage = () => {
         />
       </section>
 
-      {/* Main Charts Row */}
+      {/* 3. Period-Over-Period Comparison Section */}
+      <DateOverDateComparison />
+
+      {/* 4. Main Charts Row: Revenue Velocity + Category Share */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue & Volume Trend Chart (2 columns) */}
         <div className="lg:col-span-2 bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
@@ -336,110 +338,11 @@ export const DashboardPage = () => {
         </div>
       </section>
 
-      {/* Operational Feed: Top Products & Critical Stockout Risks */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Selling Products */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-            <div>
-              <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                Top Performing Products
-              </h2>
-              <p className="text-xs text-slate-500">Best-sellers ranked by gross revenue</p>
-            </div>
-            <Link
-              to="/products"
-              className="inline-flex items-center text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-            >
-              Catalog <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Link>
-          </div>
+      {/* 5. Revenue vs Expense Profitability Comparison */}
+      <RevenueVsExpenseChart />
 
-          <div className="mt-4 divide-y divide-slate-100">
-            {topProducts.length > 0 ? (
-              topProducts.map((p, idx) => (
-                <div key={p.sku || idx} className="py-3 flex items-center justify-between">
-                  <div className="flex items-center space-x-3 min-w-0">
-                    <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold shrink-0">
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">
-                        {p.productName || p.sku}
-                      </p>
-                      <p className="text-xs text-slate-400">SKU: {p.sku}</p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-slate-900">
-                      {formatCurrency(p.totalRevenueGenerated, currency)}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {formatNumber(p.totalQuantitySold)} units sold
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="py-8 text-center text-slate-400 text-xs">
-                No top product sales recorded yet.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Critical Stockout Alerts */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-            <div>
-              <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-500" />
-                Critical Low Stock Alerts
-              </h2>
-              <p className="text-xs text-slate-500">SKUs below safety reorder threshold</p>
-            </div>
-            <Link
-              to="/inventory"
-              className="inline-flex items-center text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-            >
-              Manage Stock <ArrowRight className="w-3.5 h-3.5 ml-1" />
-            </Link>
-          </div>
-
-          <div className="mt-4 divide-y divide-slate-100">
-            {lowStockAlerts.length > 0 ? (
-              lowStockAlerts.map((prod) => (
-                <div key={prod.sku} className="py-3 flex items-center justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate">{prod.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-slate-400 font-mono">SKU: {prod.sku}</span>
-                      <span className="text-slate-300">•</span>
-                      <span className="text-xs text-slate-500">{prod.category}</span>
-                    </div>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200/60 px-2 py-0.5 rounded-full">
-                        {prod.currentStock} in stock
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Threshold: {prod.reorderThreshold}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="py-8 text-center text-emerald-600 text-xs font-medium">
-                ✓ All catalog SKUs meet or exceed safety reorder thresholds!
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+      {/* 6. Product Performance Deep Dive & Slow Movers */}
+      <ProductPerformanceDeepDive />
     </div>
   )
 }

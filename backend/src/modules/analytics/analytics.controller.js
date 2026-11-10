@@ -55,3 +55,39 @@ export const getInventoryHealth = catchAsync(async (req, res) => {
   const result = await analyticsService.getInventoryHealth(req.businessId)
   return successResponse(res, result, 'Inventory health metrics retrieved successfully')
 })
+
+/**
+ * Daily, weekly, and monthly sales summaries with refunds/cancellations
+ * GET /api/analytics/sales-summaries
+ */
+export const getSalesSummaries = catchAsync(async (req, res) => {
+  const result = await analyticsService.getSalesSummaries(req.businessId, req.query)
+  return successResponse(res, result, 'Sales summaries retrieved successfully')
+})
+
+/**
+ * Revenue vs Operating Expenses Profitability Comparison
+ * GET /api/analytics/revenue-vs-expense
+ */
+export const getRevenueVsExpenseComparison = catchAsync(async (req, res) => {
+  const result = await analyticsService.getRevenueVsExpenseComparison(req.businessId, req.query)
+  return successResponse(res, result, 'Revenue vs expense comparison retrieved successfully')
+})
+
+/**
+ * Date-over-Date Performance Comparisons (Period over Period)
+ * GET /api/analytics/date-comparison
+ */
+export const getDateOverDateComparison = catchAsync(async (req, res) => {
+  const result = await analyticsService.getDateOverDateComparison(req.businessId, req.query)
+  return successResponse(res, result, 'Date-over-date performance comparison retrieved successfully')
+})
+
+/**
+ * Deep-dive Product and Category Profitability Analysis
+ * GET /api/analytics/product-deep-dive
+ */
+export const getProductAndCategoryDeepDive = catchAsync(async (req, res) => {
+  const result = await analyticsService.getProductAndCategoryDeepDive(req.businessId, req.query)
+  return successResponse(res, result, 'Product and category deep dive analysis retrieved successfully')
+})

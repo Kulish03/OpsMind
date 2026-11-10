@@ -415,3 +415,506 @@ export const getInventoryHealth = async (businessId) => {
     criticalReorderAlerts: highRiskSkus.slice(0, 10),
   }
 }
+
+/**
+ * 1. Daily, Weekly, and Monthly Sales Summaries (with refund/cancellation handling)
+ */
+export const getSalesSummaries = async (businessId, query = {}) => {
+  const granularity = query.period || 'daily' // 'daily', 'weekly', 'monthly'
+  let dateFormat = '%Y-%m-%d'
+  if (granularity === 'monthly') {
+    dateFormat = '%Y-%m'
+  } else if (granularity === 'weekly') {
+    dateFormat = '%Y-W%V'
+  }
+
+  const matchFilter = { businessId }
+  if (query.startDate || query.endDate) {
+    matchFilter.transactionDate = {}
+    if (query.startDate) matchFilter.transactionDate.$gte = new Date(query.startDate)
+    if (query.endDate) {
+      const end = new Date(query.endDate)
+      if (query.endDate.length <= 10) end.setHours(23, 59, 59, 999)
+      matchFilter.transactionDate.$lte = end
+    }
+  }
+
+  const summaries = await Sale.aggregate([
+    { $match: matchFilter },
+    {
+      $group: {
+        _id: { $dateToString: { format: dateFormat, date: '$transactionDate' } },
+        completedRevenue: {
+          $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$totalAmount', 0] },
+        },
+        completedOrders: {
+          $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] },
+        },
+        completedUnits: {
+          $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$totalUnits', 0] },
+        },
+        cancelledRevenue: {
+          $sum: { $cond: [{ $in: ['$status', ['cancelled', 'refunded']] }, '$totalAmount', 0] },
+        },
+        cancelledOrders: {
+          $sum: { $cond: [{ $in: ['$status', ['cancelled', 'refunded']] }, 1, 0] },
+        },
+        totalOrdersCount: { $sum: 1 },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ])
+
+  let totalCompletedRevenue = 0
+  let totalCompletedOrders = 0
+  let totalCancelledRevenue = 0
+  let totalCancelledOrders = 0
+
+  const timeline = summaries.map((s) => {
+    const rev = Number(s.completedRevenue.toFixed(2))
+    const orders = s.completedOrders
+    const aov = orders > 0 ? Number((rev / orders).toFixed(2)) : 0
+    const refundRev = Number(s.cancelledRevenue.toFixed(2))
+    const refundOrders = s.cancelledOrders
+
+    totalCompletedRevenue += rev
+    totalCompletedOrders += orders
+    totalCancelledRevenue += refundRev
+    totalCancelledOrders += refundOrders
+
+    return {
+      date: s._id,
+      completedRevenue: rev,
+      completedOrders: orders,
+      completedUnits: s.completedUnits,
+      averageOrderValue: aov,
+      cancelledRevenue: refundRev,
+      cancelledOrders: refundOrders,
+      refundRatePercentage:
+        s.totalOrdersCount > 0
+          ? Number(((refundOrders / s.totalOrdersCount) * 100).toFixed(2))
+          : 0,
+    }
+  })
+
+  return {
+    businessId,
+    granularity,
+    totals: {
+      completedRevenue: Number(totalCompletedRevenue.toFixed(2)),
+      completedOrders: totalCompletedOrders,
+      averageOrderValue:
+        totalCompletedOrders > 0
+          ? Number((totalCompletedRevenue / totalCompletedOrders).toFixed(2))
+          : 0,
+      cancelledRevenue: Number(totalCancelledRevenue.toFixed(2)),
+      cancelledOrders: totalCancelledOrders,
+      overallRefundRatePercentage:
+        totalCompletedOrders + totalCancelledOrders > 0
+          ? Number(
+              (
+                (totalCancelledOrders / (totalCompletedOrders + totalCancelledOrders)) *
+                100
+              ).toFixed(2)
+            )
+          : 0,
+    },
+    timeline,
+  }
+}
+
+/**
+ * 2. Revenue versus Expense Comparisons (Authoritative Profitability Breakdown)
+ */
+export const getRevenueVsExpenseComparison = async (businessId, query = {}) => {
+  const granularity = query.period || 'monthly' // 'monthly' | 'weekly' | 'daily'
+  let dateFormat = '%Y-%m'
+  if (granularity === 'weekly') {
+    dateFormat = '%Y-W%V'
+  } else if (granularity === 'daily') {
+    dateFormat = '%Y-%m-%d'
+  }
+
+  const saleFilter = { businessId, status: 'completed' }
+  const expenseFilter = { businessId }
+
+  if (query.startDate || query.endDate) {
+    saleFilter.transactionDate = {}
+    expenseFilter.date = {}
+    if (query.startDate) {
+      const start = new Date(query.startDate)
+      saleFilter.transactionDate.$gte = start
+      expenseFilter.date.$gte = start
+    }
+    if (query.endDate) {
+      const end = new Date(query.endDate)
+      if (query.endDate.length <= 10) end.setHours(23, 59, 59, 999)
+      saleFilter.transactionDate.$lte = end
+      expenseFilter.date.$lte = end
+    }
+  }
+
+  // 1. Group Sales & COGS by period
+  const salesAgg = await Sale.aggregate([
+    { $match: saleFilter },
+    { $unwind: '$items' },
+    {
+      $lookup: {
+        from: 'products',
+        let: { sku: '$items.productSku', biz: '$businessId' },
+        pipeline: [
+          { $match: { $expr: { $and: [{ $eq: ['$sku', '$$sku'] }, { $eq: ['$businessId', '$$biz'] }] } } },
+          { $project: { costPrice: 1 } },
+        ],
+        as: 'prod',
+      },
+    },
+    {
+      $project: {
+        periodDate: { $dateToString: { format: dateFormat, date: '$transactionDate' } },
+        lineTotal: '$items.lineTotal',
+        quantity: '$items.quantity',
+        costPrice: { $ifNull: [{ $arrayElemAt: ['$prod.costPrice', 0] }, 0] },
+        hasMissingCost: {
+          $cond: [{ $lte: [{ $ifNull: [{ $arrayElemAt: ['$prod.costPrice', 0] }, 0] }, 0] }, 1, 0],
+        },
+      },
+    },
+    {
+      $group: {
+        _id: '$periodDate',
+        totalRevenue: { $sum: '$lineTotal' },
+        totalCOGS: { $sum: { $multiply: ['$quantity', '$costPrice'] } },
+        missingCostItemsCount: { $sum: '$hasMissingCost' },
+        itemsCount: { $sum: 1 },
+      },
+    },
+  ])
+
+  // 2. Group Expenses by period
+  const expenseAgg = await Expense.aggregate([
+    { $match: expenseFilter },
+    {
+      $group: {
+        _id: { $dateToString: { format: dateFormat, date: '$date' } },
+        totalExpenses: { $sum: '$amount' },
+        expenseCount: { $sum: 1 },
+      },
+    },
+  ])
+
+  // Map into merged timeline
+  const periodMap = new Map()
+
+  for (const s of salesAgg) {
+    periodMap.set(s._id, {
+      period: s._id,
+      revenue: Number(s.totalRevenue.toFixed(2)),
+      cogs: Number(s.totalCOGS.toFixed(2)),
+      grossProfit: Number((s.totalRevenue - s.totalCOGS).toFixed(2)),
+      grossMarginPercentage:
+        s.totalRevenue > 0
+          ? Number((((s.totalRevenue - s.totalCOGS) / s.totalRevenue) * 100).toFixed(2))
+          : 0,
+      operatingExpenses: 0,
+      netProfit: Number((s.totalRevenue - s.totalCOGS).toFixed(2)),
+      netMarginPercentage: 0,
+      missingCostItemsCount: s.missingCostItemsCount,
+    })
+  }
+
+  for (const e of expenseAgg) {
+    const existing = periodMap.get(e._id) || {
+      period: e._id,
+      revenue: 0,
+      cogs: 0,
+      grossProfit: 0,
+      grossMarginPercentage: 0,
+      operatingExpenses: 0,
+      netProfit: 0,
+      netMarginPercentage: 0,
+      missingCostItemsCount: 0,
+    }
+
+    const expenses = Number(e.totalExpenses.toFixed(2))
+    existing.operatingExpenses = expenses
+    existing.netProfit = Number((existing.grossProfit - expenses).toFixed(2))
+    existing.netMarginPercentage =
+      existing.revenue > 0
+        ? Number(((existing.netProfit / existing.revenue) * 100).toFixed(2))
+        : 0
+
+    periodMap.set(e._id, existing)
+  }
+
+  const comparison = Array.from(periodMap.values()).sort((a, b) => a.period.localeCompare(b.period))
+
+  return {
+    businessId,
+    granularity,
+    timeline: comparison,
+  }
+}
+
+/**
+ * 3. Date-Over-Date Business Performance Comparisons
+ * e.g. Last 7 Days vs Prior 7 Days, or Last 30 Days vs Prior 30 Days
+ */
+export const getDateOverDateComparison = async (businessId, query = {}) => {
+  const windowDays = parseInt(query.days, 10) || (query.period === '7d' ? 7 : 30)
+
+  // Current window: [now - windowDays, now]
+  const now = new Date()
+  const currentEnd = new Date(now)
+  const currentStart = new Date(now)
+  currentStart.setDate(currentStart.getDate() - windowDays)
+
+  // Prior window: [now - 2 * windowDays, now - windowDays]
+  const priorEnd = new Date(currentStart)
+  const priorStart = new Date(currentStart)
+  priorStart.setDate(priorStart.getDate() - windowDays)
+
+  // Fetch KPI snapshots for both windows
+  const [currentKPIs, priorKPIs] = await Promise.all([
+    getExecutiveKPIs(businessId, {
+      startDate: currentStart.toISOString(),
+      endDate: currentEnd.toISOString(),
+    }),
+    getExecutiveKPIs(businessId, {
+      startDate: priorStart.toISOString(),
+      endDate: priorEnd.toISOString(),
+    }),
+  ])
+
+  // Helper to compute absolute & percentage delta safely
+  const calculateDelta = (currentVal, priorVal, isCurrency = false) => {
+    const cur = Number(currentVal || 0)
+    const pri = Number(priorVal || 0)
+    const diff = Number((cur - pri).toFixed(2))
+
+    let percentChange = 0
+    if (pri > 0) {
+      percentChange = Number((((cur - pri) / pri) * 100).toFixed(1))
+    } else if (pri === 0 && cur > 0) {
+      percentChange = 100.0
+    }
+
+    return {
+      current: isCurrency ? Number(cur.toFixed(2)) : cur,
+      prior: isCurrency ? Number(pri.toFixed(2)) : pri,
+      absoluteDelta: diff,
+      percentageDelta: percentChange,
+      trend: diff > 0 ? 'UP' : diff < 0 ? 'DOWN' : 'FLAT',
+    }
+  }
+
+  return {
+    businessId,
+    comparisonWindowDays: windowDays,
+    currentPeriod: {
+      startDate: currentStart.toISOString().split('T')[0],
+      endDate: currentEnd.toISOString().split('T')[0],
+    },
+    priorPeriod: {
+      startDate: priorStart.toISOString().split('T')[0],
+      endDate: priorEnd.toISOString().split('T')[0],
+    },
+    metrics: {
+      revenue: calculateDelta(
+        currentKPIs.revenueAndOrders.totalRevenue,
+        priorKPIs.revenueAndOrders.totalRevenue,
+        true
+      ),
+      orders: calculateDelta(
+        currentKPIs.revenueAndOrders.totalOrders,
+        priorKPIs.revenueAndOrders.totalOrders
+      ),
+      averageOrderValue: calculateDelta(
+        currentKPIs.revenueAndOrders.averageOrderValue,
+        priorKPIs.revenueAndOrders.averageOrderValue,
+        true
+      ),
+      unitsSold: calculateDelta(
+        currentKPIs.revenueAndOrders.totalUnitsSold,
+        priorKPIs.revenueAndOrders.totalUnitsSold
+      ),
+      grossProfit: calculateDelta(
+        currentKPIs.profitability.grossProfit,
+        priorKPIs.profitability.grossProfit,
+        true
+      ),
+      operatingExpenses: calculateDelta(
+        currentKPIs.profitability.totalOperatingExpenses,
+        priorKPIs.profitability.totalOperatingExpenses,
+        true
+      ),
+      netProfit: calculateDelta(
+        currentKPIs.profitability.netProfit,
+        priorKPIs.profitability.netProfit,
+        true
+      ),
+    },
+  }
+}
+
+/**
+ * 4. Product Performance Deep-Dive & Category Analysis
+ * Returns top-performing products, slow-moving items, and category profitability
+ */
+export const getProductAndCategoryDeepDive = async (businessId, query = {}) => {
+  const limit = Math.min(50, Math.max(1, parseInt(query.limit, 10) || 10))
+
+  const saleFilter = { businessId, status: 'completed' }
+  if (query.startDate || query.endDate) {
+    saleFilter.transactionDate = {}
+    if (query.startDate) saleFilter.transactionDate.$gte = new Date(query.startDate)
+    if (query.endDate) {
+      const end = new Date(query.endDate)
+      if (query.endDate.length <= 10) end.setHours(23, 59, 59, 999)
+      saleFilter.transactionDate.$lte = end
+    }
+  }
+
+  // 1. Product Sales Aggregation joined with Product catalog info
+  const productAgg = await Sale.aggregate([
+    { $match: saleFilter },
+    { $unwind: '$items' },
+    {
+      $lookup: {
+        from: 'products',
+        let: { sku: '$items.productSku', biz: '$businessId' },
+        pipeline: [
+          { $match: { $expr: { $and: [{ $eq: ['$sku', '$$sku'] }, { $eq: ['$businessId', '$$biz'] }] } } },
+          { $project: { costPrice: 1, sellingPrice: 1, category: 1, currentStock: 1 } },
+        ],
+        as: 'catalog',
+      },
+    },
+    {
+      $project: {
+        sku: '$items.productSku',
+        name: '$items.productName',
+        quantity: '$items.quantity',
+        revenue: '$items.lineTotal',
+        costPrice: { $ifNull: [{ $arrayElemAt: ['$catalog.costPrice', 0] }, 0] },
+        category: { $ifNull: [{ $arrayElemAt: ['$catalog.category', 0] }, 'Uncategorized'] },
+        currentStock: { $ifNull: [{ $arrayElemAt: ['$catalog.currentStock', 0] }, 0] },
+      },
+    },
+    {
+      $group: {
+        _id: '$sku',
+        productName: { $first: '$name' },
+        category: { $first: '$category' },
+        currentStock: { $first: '$currentStock' },
+        totalQuantitySold: { $sum: '$quantity' },
+        totalRevenue: { $sum: '$revenue' },
+        totalCost: { $sum: { $multiply: ['$quantity', '$costPrice'] } },
+      },
+    },
+  ])
+
+  // Compute profit and margins
+  const analyzedProducts = productAgg.map((p) => {
+    const rev = Number(p.totalRevenue.toFixed(2))
+    const cost = Number(p.totalCost.toFixed(2))
+    const profit = Number((rev - cost).toFixed(2))
+    const margin = rev > 0 ? Number(((profit / rev) * 100).toFixed(2)) : 0
+
+    return {
+      sku: p._id,
+      name: p.productName,
+      category: p.category,
+      currentStock: p.currentStock,
+      totalQuantitySold: p.totalQuantitySold,
+      totalRevenue: rev,
+      totalCost: cost,
+      grossProfit: profit,
+      grossMarginPercentage: margin,
+    }
+  })
+
+  // Top products by revenue
+  const topByRevenue = [...analyzedProducts]
+    .sort((a, b) => b.totalRevenue - a.totalRevenue)
+    .slice(0, limit)
+
+  // Top products by units sold
+  const topByVolume = [...analyzedProducts]
+    .sort((a, b) => b.totalQuantitySold - a.totalQuantitySold)
+    .slice(0, limit)
+
+  // Bottom / slow-moving products: active catalog products with lowest/zero units sold
+  const soldSkusSet = new Set(analyzedProducts.map((p) => p.sku))
+  const zeroSalesCatalogProducts = await Product.find({
+    businessId,
+    isActive: true,
+    sku: { $nin: Array.from(soldSkusSet) },
+  })
+    .limit(limit)
+    .select('sku name category costPrice sellingPrice currentStock')
+    .lean()
+
+  const bottomMovers = zeroSalesCatalogProducts.map((p) => ({
+    sku: p.sku,
+    name: p.name,
+    category: p.category,
+    currentStock: p.currentStock,
+    totalQuantitySold: 0,
+    totalRevenue: 0,
+    grossProfit: 0,
+    grossMarginPercentage: 0,
+  }))
+
+  // If not enough zero-sales, supplement with lowest positive sales
+  if (bottomMovers.length < limit) {
+    const lowestSales = [...analyzedProducts]
+      .sort((a, b) => a.totalQuantitySold - b.totalQuantitySold)
+      .slice(0, limit - bottomMovers.length)
+    bottomMovers.push(...lowestSales)
+  }
+
+  // Category Profitability Analysis
+  const categoryMap = new Map()
+  for (const p of analyzedProducts) {
+    const cat = p.category || 'General'
+    const cur = categoryMap.get(cat) || {
+      category: cat,
+      revenue: 0,
+      cogs: 0,
+      unitsSold: 0,
+      skusCount: 0,
+    }
+    cur.revenue += p.totalRevenue
+    cur.cogs += p.totalCost
+    cur.unitsSold += p.totalQuantitySold
+    cur.skusCount += 1
+    categoryMap.set(cat, cur)
+  }
+
+  const categoryPerformance = Array.from(categoryMap.values()).map((c) => {
+    const rev = Number(c.revenue.toFixed(2))
+    const cogs = Number(c.cogs.toFixed(2))
+    const profit = Number((rev - cogs).toFixed(2))
+    const margin = rev > 0 ? Number(((profit / rev) * 100).toFixed(2)) : 0
+
+    return {
+      category: c.category,
+      revenue: rev,
+      cogs,
+      grossProfit: profit,
+      grossMarginPercentage: margin,
+      unitsSold: c.unitsSold,
+      activeSkusCount: c.skusCount,
+    }
+  }).sort((a, b) => b.revenue - a.revenue)
+
+  return {
+    businessId,
+    topByRevenue,
+    topByVolume,
+    bottomMovers: bottomMovers.slice(0, limit),
+    categoryPerformance,
+  }
+}
+
