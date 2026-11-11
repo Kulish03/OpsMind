@@ -12,6 +12,7 @@ import {
   Layers,
   Sparkles,
   ShieldAlert,
+  BrainCircuit,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -335,6 +336,39 @@ export const DashboardPage = () => {
               </div>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* 4.5. Phase 5 Machine Learning Highlights Banner */}
+      <section className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-radial from-indigo-500/20 to-transparent pointer-events-none" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
+                Phase 5 Machine Learning Active
+              </span>
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                4 Models Evaluated & Serving
+              </span>
+            </div>
+            <h3 className="text-lg font-bold tracking-tight">
+              Predictive Operations & Demand Forecasting Engine
+            </h3>
+            <p className="text-xs text-indigo-200/90 max-w-2xl">
+              Chronologically evaluated Random Forest demand projections (29.56% WAPE, +34.5% vs baseline), Isolation Forest expense anomaly detection, and automated stockout replenishment scoring.
+            </p>
+          </div>
+
+          <Link
+            to="/ml-insights"
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white text-indigo-950 font-bold text-xs hover:bg-indigo-50 transition shadow-sm shrink-0"
+          >
+            <BrainCircuit className="w-4 h-4 text-indigo-600" />
+            Explore ML Insights
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
         </div>
       </section>
 

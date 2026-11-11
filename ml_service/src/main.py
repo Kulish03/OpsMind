@@ -7,6 +7,9 @@ from src.core.config import settings
 from src.schemas.health import HealthCheckResponse
 from src.api.v1.ml.router import router as ml_router
 from src.api.v1.copilot.router import router as copilot_router
+from src.services.forecasting import demand_service
+from src.services.anomaly_detector import anomaly_service
+from src.services.customer_churn import customer_churn_service
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -48,10 +51,10 @@ async def health_check():
         environment=settings.ENVIRONMENT,
         timestamp=datetime.now(timezone.utc).isoformat(),
         models_loaded={
-            "demand_forecast": False,
-            "anomaly_detector": False,
-            "churn_predictor": False,
-            "stockout_evaluator": False
+            "demand_forecast": demand_service.model is not None,
+            "anomaly_detector": (anomaly_service.expense_model is not None and anomaly_service.sales_model is not None),
+            "churn_predictor": customer_churn_service.model is not None,
+            "stockout_evaluator": True
         },
         details={
             "backend_url": settings.BACKEND_URL,
