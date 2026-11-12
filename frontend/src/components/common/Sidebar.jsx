@@ -17,6 +17,7 @@ import {
 export const Sidebar = ({ onCloseMobile }) => {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'AI Copilot', path: '/copilot', icon: Bot },
     { name: 'ML Insights', path: '/ml-insights', icon: BrainCircuit },
     { name: 'Alerts', path: '/alerts', icon: ShieldAlert },
     { name: 'Sales', path: '/sales', icon: ShoppingCart },

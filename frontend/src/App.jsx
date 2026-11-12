@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
+import CopilotPage from './pages/CopilotPage'
 import AlertsPage from './pages/AlertsPage'
 import MLInsightsPage from './pages/MLInsightsPage'
 import SalesPage from './pages/SalesPage'
@@ -43,6 +44,7 @@ const AppRoutes = () => {
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="copilot" element={<CopilotPage />} />
         <Route path="ml-insights" element={<MLInsightsPage />} />
         <Route path="alerts" element={<AlertsPage />} />
         <Route path="sales" element={<SalesPage />} />
