@@ -32,6 +32,7 @@ import StatCard from '../components/common/StatCard'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import { AlertBanner } from '../components/common/AlertBanner'
 import AlertCenter from '../components/alerts/AlertCenter'
+import RecommendationsBanner from '../components/dashboard/RecommendationsBanner'
 import DateOverDateComparison from '../components/dashboard/DateOverDateComparison'
 import RevenueVsExpenseChart from '../components/dashboard/RevenueVsExpenseChart'
 import ProductPerformanceDeepDive from '../components/dashboard/ProductPerformanceDeepDive'
@@ -125,6 +126,9 @@ export const DashboardPage = () => {
       </div>
 
       {error && <AlertBanner type="error" message={error} onDismiss={() => setError(null)} />}
+
+      {/* Actionable Recommendations Highlight Banner */}
+      <RecommendationsBanner />
 
       {/* 1. Rule-Based Alert Center Hub */}
       <AlertCenter />

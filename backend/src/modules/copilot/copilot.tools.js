@@ -12,6 +12,7 @@ import { z } from 'zod'
 import * as analyticsService from '../analytics/analytics.service.js'
 import * as mlService from '../ml/ml.service.js'
 import * as alertService from '../notifications/alert.service.js'
+import * as recommendationService from '../recommendations/recommendation.service.js'
 import Expense from '../business/expense.model.js'
 import Product from '../business/product.model.js'
 import Customer from '../business/customer.model.js'
@@ -374,6 +375,64 @@ export const getOperationalAlerts = async (businessId) => {
 }
 
 // ============================================================================
+// TOOL 12: Actionable Recommendations & Decisions
+// ============================================================================
+const recommendationsSchema = z.object({
+  status: z.enum(['ALL', 'PENDING_REVIEW', 'APPROVED', 'REJECTED', 'DISMISSED', 'APPLIED']).default('PENDING_REVIEW'),
+  severity: z.enum(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW']).default('ALL'),
+  limit: z.number().int().min(1).max(20).default(5),
+})
+
+export const getRecommendationsTool = async (businessId, args = {}) => {
+  const parsed = recommendationsSchema.parse(args)
+  const [data, summary] = await Promise.all([
+    recommendationService.getRecommendations(businessId, parsed),
+    recommendationService.getRecommendationSummary(businessId),
+  ])
+
+  return {
+    summary: {
+      pendingReviewCount: summary.pendingReviewCount,
+      criticalPendingCount: summary.criticalPendingCount,
+      totalEstimatedFinancialImpact: `£${summary.totalEstimatedFinancialImpact.toLocaleString()}`,
+    },
+    recommendations: (data.items || []).slice(0, parsed.limit).map((r) => ({
+      id: r._id,
+      title: r.title,
+      type: r.type,
+      category: r.category,
+      severity: r.severity,
+      urgency: r.urgency,
+      status: r.status,
+      reason: r.reason,
+      estimatedImpact: `£${(r.estimatedImpact?.amount || 0).toLocaleString()} (${r.estimatedImpact?.metric})`,
+      actionType: r.action?.actionType,
+      requiresConfirmation: r.action?.requiresConfirmation,
+    })),
+  }
+}
+
+// ============================================================================
+// TOOL 13: Recommendation Audit Log & Decision Trail
+// ============================================================================
+export const getRecommendationAuditLogTool = async (businessId, args = {}) => {
+  const logs = await recommendationService.getAuditLogs(businessId, { limit: 10 })
+  return {
+    totalRecentActions: logs.length,
+    logs: logs.map((l) => ({
+      title: l.recommendationTitle,
+      type: l.recommendationType,
+      action: l.action,
+      decidedBy: l.userName,
+      role: l.userRole,
+      newStatus: l.newStatus,
+      notes: l.notes,
+      timestamp: l.timestamp,
+    })),
+  }
+}
+
+// ============================================================================
 // Master Tool Registry & Declarations for LLM Tool Calling
 // ============================================================================
 export const TOOL_DEFINITIONS = [
@@ -482,6 +541,26 @@ export const TOOL_DEFINITIONS = [
       properties: {},
     },
   },
+  {
+    name: 'get_recommendations',
+    description: 'Retrieve prioritized actionable business recommendations (stock replenishment, expense audit, customer retention) backed by ML and business rules, with human approval workflows and financial impacts.',
+    parameters: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['ALL', 'PENDING_REVIEW', 'APPROVED', 'REJECTED', 'DISMISSED', 'APPLIED'], description: 'Filter by approval status.' },
+        severity: { type: 'string', enum: ['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'], description: 'Filter by severity.' },
+        limit: { type: 'integer', description: 'Max items to return.' },
+      },
+    },
+  },
+  {
+    name: 'get_recommendation_audit_log',
+    description: 'Retrieve the immutable audit history of user decisions, approvals, and executed consequential operations.',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ]
 
 // Dispatch table mapping tool name to implementation
@@ -497,4 +576,6 @@ export const TOOL_HANDLERS = {
   get_inventory_risk_recommendations: getMLInventoryRisk,
   get_customer_churn_risks: getMLCustomerChurn,
   get_operational_alerts: getOperationalAlerts,
+  get_recommendations: getRecommendationsTool,
+  get_recommendation_audit_log: getRecommendationAuditLogTool,
 }

@@ -6,6 +6,7 @@ import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import CopilotPage from './pages/CopilotPage'
 import AlertsPage from './pages/AlertsPage'
+import RecommendationsPage from './pages/RecommendationsPage'
 import MLInsightsPage from './pages/MLInsightsPage'
 import SalesPage from './pages/SalesPage'
 import ProductsPage from './pages/ProductsPage'
@@ -45,6 +46,7 @@ const AppRoutes = () => {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="copilot" element={<CopilotPage />} />
+        <Route path="recommendations" element={<RecommendationsPage />} />
         <Route path="ml-insights" element={<MLInsightsPage />} />
         <Route path="alerts" element={<AlertsPage />} />
         <Route path="sales" element={<SalesPage />} />

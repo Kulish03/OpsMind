@@ -191,7 +191,38 @@ export const determineSemanticIntent = (query) => {
     }
   }
 
-  // 11. Sales Analytics (Default for revenue, sales, AOV, performance)
+  // 11. Recommendations & Action Items
+  if (
+    q.includes('recommendation') ||
+    q.includes('what should i do') ||
+    q.includes('action item') ||
+    q.includes('suggested action') ||
+    q.includes('consequential') ||
+    q.includes('approval') ||
+    q.includes('pending review')
+  ) {
+    return {
+      toolName: 'get_recommendations',
+      args: { status: 'PENDING_REVIEW', limit: 5 },
+    }
+  }
+
+  // 12. Recommendation Decision & Audit Log Trail
+  if (
+    q.includes('audit log') ||
+    q.includes('decision log') ||
+    q.includes('audit trail') ||
+    q.includes('who approved') ||
+    q.includes('past decisions') ||
+    q.includes('human approval history')
+  ) {
+    return {
+      toolName: 'get_recommendation_audit_log',
+      args: {},
+    }
+  }
+
+  // 13. Sales Analytics (Default for revenue, sales, AOV, performance)
   if (
     q.includes('revenue') ||
     q.includes('sale') ||
@@ -406,6 +437,41 @@ Model: ${toolResult.modelPerformance?.algorithm} (ROC-AUC: **${toolResult.modelP
       let text = `### 🚨 Active Operational Alerts (${toolResult.activeAlertsCount} Total)\n\n`
       alerts.forEach((a) => {
         text += `- **[${a.severity}] ${a.title}** (${a.category})\n  ${a.message}\n`
+      })
+      return text
+    }
+
+    case 'get_recommendations': {
+      const recs = toolResult.recommendations || []
+      const s = toolResult.summary || {}
+      if (recs.length === 0) {
+        return `✅ **No Action Items Pending:** There are currently 0 pending recommendations requiring review.`
+      }
+      let text = `### 💡 Prioritized Business Recommendations (${s.pendingReviewCount} Pending Review)\n\n`
+      text += `**Estimated Financial Impact:** ${s.totalEstimatedFinancialImpact} | **Critical Actions:** ${s.criticalPendingCount}\n\n`
+      recs.forEach((r, idx) => {
+        text += `${idx + 1}. **[${r.severity}] ${r.title}** (${r.category})\n`
+        text += `   - **Reason:** ${r.reason}\n`
+        text += `   - **Estimated Impact:** ${r.estimatedImpact}\n`
+        text += `   - **Action Type:** \`${r.actionType}\` ${r.requiresConfirmation ? '(⚠️ Consequential — Requires Human Confirmation)' : ''}\n`
+        text += `   - **Status:** \`${r.status}\` | ID: \`${r.id}\`\n\n`
+      })
+      text += `*Note: You can review and approve or execute these recommendations in the **Recommendations Dashboard**.*`
+      return text
+    }
+
+    case 'get_recommendation_audit_log': {
+      const logs = toolResult.logs || []
+      if (logs.length === 0) {
+        return `ℹ️ **Audit Trail Empty:** No recommendation review or execution events recorded yet.`
+      }
+      let text = `### 📜 Recommendation Decision & Execution Audit Trail\n\n`
+      logs.forEach((l, idx) => {
+        text += `${idx + 1}. **${l.action}** by **${l.decidedBy}** (${l.role}) on ${new Date(l.timestamp).toLocaleString('en-GB')}\n`
+        text += `   - Recommendation: "${l.title}" (\`${l.type}\`)\n`
+        text += `   - New Status: \`${l.newStatus || 'N/A'}\`\n`
+        if (l.notes) text += `   - Notes: *${l.notes}*\n`
+        text += `\n`
       })
       return text
     }

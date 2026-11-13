@@ -18,6 +18,7 @@ import analyticsRouter from './modules/analytics/analytics.routes.js'
 import alertRouter from './modules/notifications/alert.routes.js'
 import mlRouter from './modules/ml/ml.routes.js'
 import copilotRouter from './modules/copilot/copilot.routes.js'
+import recommendationRouter from './modules/recommendations/recommendation.routes.js'
 
 const app = express()
 
@@ -48,6 +49,7 @@ app.use('/api/analytics', analyticsRouter)
 app.use('/api/alerts', alertRouter)
 app.use('/api/ml', mlRouter)
 app.use('/api/copilot', copilotRouter)
+app.use('/api/recommendations', recommendationRouter)
 
 // Service Identification & Integrated System Health Check
 app.get('/api/health', async (req, res) => {

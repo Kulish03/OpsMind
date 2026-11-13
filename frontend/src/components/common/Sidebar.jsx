@@ -10,6 +10,7 @@ import {
   Truck,
   Sparkles,
   Bot,
+  Lightbulb,
   ShieldAlert,
   BrainCircuit,
 } from 'lucide-react'
@@ -18,6 +19,7 @@ export const Sidebar = ({ onCloseMobile }) => {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'AI Copilot', path: '/copilot', icon: Bot },
+    { name: 'Recommendations', path: '/recommendations', icon: Lightbulb },
     { name: 'ML Insights', path: '/ml-insights', icon: BrainCircuit },
     { name: 'Alerts', path: '/alerts', icon: ShieldAlert },
     { name: 'Sales', path: '/sales', icon: ShoppingCart },
