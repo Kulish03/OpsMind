@@ -44,20 +44,33 @@ export const getSalesAnalytics = async (businessId, args = {}) => {
     analyticsService.getSalesSummaries(businessId, query).catch(() => null),
   ])
 
+  const revOrders = kpis?.revenueAndOrders || {}
+  const profit = kpis?.profitability || {}
+  const sumTotals = summaries?.totals || {}
+
+  const netRev = revOrders.totalRevenue ?? sumTotals.completedRevenue ?? 0
+  const totalRefunds = Math.abs(sumTotals.cancelledRevenue || 0)
+  const grossRev = netRev + totalRefunds
+  const orders = revOrders.totalOrders ?? sumTotals.completedOrders ?? 0
+  const aov = revOrders.averageOrderValue ?? sumTotals.averageOrderValue ?? 0
+  const units = revOrders.totalUnitsSold ?? 0
+  const grossProfit = profit.grossProfit ?? 0
+  const grossMargin = profit.grossMarginPercentage ? `${profit.grossMarginPercentage}%` : 'N/A'
+
   return {
     timePeriod: query.startDate ? `From ${query.startDate} to ${query.endDate || 'present'}` : 'All-time historical sales',
     metrics: {
-      grossRevenue: kpis.grossRevenue,
-      netRevenue: kpis.netRevenue,
-      totalRefunds: kpis.totalRefunds,
-      orderCount: kpis.orderCount,
-      averageOrderValue: kpis.averageOrderValue,
-      totalUnitsSold: kpis.totalUnitsSold,
-      grossProfit: kpis.grossProfit,
-      grossProfitMarginPct: kpis.grossProfitMargin ? `${kpis.grossProfitMargin}%` : 'N/A',
+      grossRevenue: grossRev,
+      netRevenue: netRev,
+      totalRefunds,
+      orderCount: orders,
+      averageOrderValue: aov,
+      totalUnitsSold: units,
+      grossProfit,
+      grossProfitMarginPct: grossMargin,
     },
-    dailyRunRateAvg: summaries?.dailySummary?.avgDailyRevenue || null,
-    totalRecordsEvaluated: kpis.orderCount,
+    dailyRunRateAvg: summaries?.timeline?.length ? Number((netRev / summaries.timeline.length).toFixed(2)) : null,
+    totalRecordsEvaluated: orders,
   }
 }
 

@@ -1,0 +1,79 @@
+services:
+  # =================================================================
+  # 1. FastAPI ML Service
+  # =================================================================
+  - type: web
+    name: opsmind-ml-service
+    runtime: python
+    region: frankfurt
+    plan: free
+    rootDir: ml_service
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt -r requirements-ml.txt
+    startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/ml/health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHON_VERSION
+        value: 3.11.9
+
+  # =================================================================
+  # 2. Express Backend API
+  # =================================================================
+  - type: web
+    name: opsmind-backend
+    runtime: node
+    region: frankfurt
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci --only=production
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: ML_SERVICE_URL
+        fromService:
+          type: web
+          name: opsmind-ml-service
+          property: host
+      - key: CLIENT_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+
+  # =================================================================
+  # 3. React Vite Static Frontend
+  # =================================================================
+  - type: static
+    name: opsmind-frontend
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: opsmind-backend
+          property: host
+          path: /api
+      - key: VITE_ML_SERVICE_URL
+        fromService:
+          type: web
+          name: opsmind-ml-service
+          property: host
+          path: /api/v1

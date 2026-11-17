@@ -5,6 +5,7 @@ import morgan from 'morgan'
 import mongoose from 'mongoose'
 import { successResponse, errorResponse } from './utils/apiResponse.js'
 import { errorHandler } from './middleware/errorHandler.js'
+import { apiLimiter, authLimiter, copilotLimiter } from './middleware/rateLimiter.js'
 import { checkMLServiceHealth } from './utils/mlClient.js'
 import authRouter from './modules/auth/auth.routes.js'
 import businessRouter from './modules/business/business.routes.js'
@@ -24,16 +25,39 @@ const app = express()
 
 // Security & Parsing Middleware
 app.use(helmet())
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true,
-}))
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+
+// Multi-Origin Production CORS Configuration
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, server-to-server) or matched origins
+      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+        return callback(null, true)
+      }
+      return callback(new Error('CORS policy does not allow access from the specified Origin.'), false)
+    },
+    credentials: true,
+  })
+)
+
+// Request Body Size Limits (1MB default to prevent memory exhaustion / DoS)
+app.use(express.json({ limit: '1mb' }))
+app.use(express.urlencoded({ extended: true, limit: '1mb' }))
+
+// Rate Limiting Guards
+app.use('/api/auth/login', authLimiter)
+app.use('/api/auth/register', authLimiter)
+app.use('/api/copilot/chat', copilotLimiter)
+app.use('/api/', apiLimiter)
 
 // Request Logging
 if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('dev'))
+  app.use(morgan('combined'))
 }
 
 // Mount Authentication, Tenancy & Domain Routes
