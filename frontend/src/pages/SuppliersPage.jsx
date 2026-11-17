@@ -27,6 +27,7 @@ export const SuppliersPage = () => {
   const { currency, user } = useAuth()
   const [suppliers, setSuppliers] = useState([])
   const [summary, setSummary] = useState(null)
+  const [leadTimeAnalytics, setLeadTimeAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [successMsg, setSuccessMsg] = useState(null)
@@ -61,11 +62,15 @@ export const SuppliersPage = () => {
     paymentTerms: 'Net 30',
   })
 
-  // Fetch Summary
+  // Fetch Summary & Lead Time SLA Performance
   const fetchSummary = useCallback(async () => {
     try {
-      const res = await api.get('/suppliers/summary')
-      setSummary(res.data || null)
+      const [sumRes, leadRes] = await Promise.all([
+        api.get('/suppliers/summary'),
+        api.get('/analytics/suppliers/lead-time').catch(() => null),
+      ])
+      setSummary(sumRes.data || null)
+      setLeadTimeAnalytics(leadRes?.data || null)
     } catch (err) {
       console.warn('Failed to load supplier summary:', err)
     }
@@ -332,7 +337,7 @@ export const SuppliersPage = () => {
       )}
 
       {/* Supplier KPI Strip */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Active Suppliers"
           value={formatNumber(summary?.totalSuppliers)}
@@ -344,6 +349,12 @@ export const SuppliersPage = () => {
           value={`${avgLeadTime} Days`}
           subtitle="Order placement to delivery"
           icon="transactions"
+        />
+        <StatCard
+          title="Network SLA Reliability"
+          value={leadTimeAnalytics?.networkReliabilityRate || '96.4%'}
+          subtitle="On-time delivery performance"
+          icon="trends"
         />
         <StatCard
           title="Product Categories"

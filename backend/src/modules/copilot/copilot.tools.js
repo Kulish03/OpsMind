@@ -13,6 +13,7 @@ import * as analyticsService from '../analytics/analytics.service.js'
 import * as mlService from '../ml/ml.service.js'
 import * as alertService from '../notifications/alert.service.js'
 import * as recommendationService from '../recommendations/recommendation.service.js'
+import * as documentService from '../documents/document.service.js'
 import Expense from '../business/expense.model.js'
 import Product from '../business/product.model.js'
 import Customer from '../business/customer.model.js'
@@ -446,6 +447,51 @@ export const getRecommendationAuditLogTool = async (businessId, args = {}) => {
 }
 
 // ============================================================================
+// TOOL 14: Business Documents & Policy RAG Retrieval
+// ============================================================================
+const ragSchema = z.object({
+  query: z.string().min(1),
+  limit: z.number().int().min(1).max(5).default(3),
+})
+
+export const queryBusinessDocumentsTool = async (businessId, args = {}) => {
+  const parsed = ragSchema.parse(args)
+  const excerpts = await documentService.queryBusinessDocuments(businessId, parsed.query, parsed.limit)
+  return {
+    query: parsed.query,
+    totalMatches: excerpts.length,
+    excerpts: excerpts.map((e) => ({
+      documentTitle: e.documentTitle,
+      category: e.category,
+      excerptText: e.text,
+      relevanceScore: e.relevanceScore,
+    })),
+  }
+}
+
+// ============================================================================
+// TOOL 15: Supplier Lead-Time & Reliability Performance
+// ============================================================================
+export const getSupplierPerformanceTool = async (businessId) => {
+  const data = await analyticsService.getSupplierLeadTimeAnalytics(businessId)
+  return {
+    totalSuppliersEvaluated: data.totalSuppliersEvaluated,
+    highRiskSuppliersCount: data.highRiskSuppliersCount,
+    averageSlaVarianceDays: data.averageSlaVarianceDays,
+    suppliers: (data.suppliers || []).slice(0, 5).map((s) => ({
+      name: s.name,
+      category: s.category,
+      statedLeadTime: `${s.statedLeadTimeDays} days`,
+      observedAvgLeadTime: `${s.observedAvgLeadTimeDays} days`,
+      variance: `${s.varianceDays >= 0 ? '+' : ''}${s.varianceDays} days`,
+      onTimeRate: `${s.onTimeDeliveryRatePct}%`,
+      reliabilityTier: s.reliabilityTier,
+      riskLevel: s.riskLevel,
+    })),
+  }
+}
+
+// ============================================================================
 // Master Tool Registry & Declarations for LLM Tool Calling
 // ============================================================================
 export const TOOL_DEFINITIONS = [
@@ -574,6 +620,26 @@ export const TOOL_DEFINITIONS = [
       properties: {},
     },
   },
+  {
+    name: 'query_business_documents',
+    description: 'Query unstructured business documents, customer return policies, supplier SLAs, warranty terms, and store operating rules via semantic RAG.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search question or topic about store policies or agreements.' },
+        limit: { type: 'integer', description: 'Number of policy excerpts to retrieve.' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'get_supplier_performance',
+    description: 'Retrieve supplier SLA lead times, observed delivery transit variance, and reliability tier ratings (A/B/C/D).',
+    parameters: {
+      type: 'object',
+      properties: {},
+    },
+  },
 ]
 
 // Dispatch table mapping tool name to implementation
@@ -591,4 +657,6 @@ export const TOOL_HANDLERS = {
   get_operational_alerts: getOperationalAlerts,
   get_recommendations: getRecommendationsTool,
   get_recommendation_audit_log: getRecommendationAuditLogTool,
+  query_business_documents: queryBusinessDocumentsTool,
+  get_supplier_performance: getSupplierPerformanceTool,
 }

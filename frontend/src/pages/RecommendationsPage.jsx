@@ -28,6 +28,7 @@ import {
   reviewRecommendation,
   executeRecommendationAction,
   getRecommendationAuditLogs,
+  getRecommendationROISummary,
 } from '../services/recommendationApi'
 import { useAuth } from '../context/AuthContext'
 import { formatCurrency, formatDate } from '../utils/formatters'
@@ -43,6 +44,7 @@ export const RecommendationsPage = () => {
   const [activeTab, setActiveTab] = useState('recommendations') // 'recommendations' | 'audit'
   const [recommendations, setRecommendations] = useState([])
   const [summary, setSummary] = useState(null)
+  const [roiSummary, setRoiSummary] = useState(null)
   const [auditLogs, setAuditLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -72,7 +74,7 @@ export const RecommendationsPage = () => {
     setLoading(true)
     setErrorMsg(null)
     try {
-      const [recData, sumData, auditData] = await Promise.all([
+      const [recData, sumData, auditData, roiData] = await Promise.all([
         getRecommendations({
           status: statusFilter,
           severity: severityFilter,
@@ -81,11 +83,13 @@ export const RecommendationsPage = () => {
         }),
         getRecommendationSummary(),
         getRecommendationAuditLogs({ limit: 50 }),
+        getRecommendationROISummary().catch(() => null),
       ])
 
       setRecommendations(recData?.items || [])
       setSummary(sumData || null)
       setAuditLogs(auditData || [])
+      setRoiSummary(roiData || null)
     } catch (err) {
       console.error('Failed to load recommendation data:', err)
       setErrorMsg(err.response?.data?.message || err.message || 'Failed to retrieve recommendations')
@@ -253,7 +257,7 @@ export const RecommendationsPage = () => {
       )}
 
       {/* KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-slate-500">Pending Review</span>
@@ -290,12 +294,12 @@ export const RecommendationsPage = () => {
           <p className="text-2xl font-bold text-slate-800 mt-2">
             {formatCurrency(summary?.totalEstimatedFinancialImpact, currency)}
           </p>
-          <p className="text-[11px] text-emerald-700 mt-1 font-medium">Protected revenue & savings</p>
+          <p className="text-[11px] text-emerald-700 mt-1 font-medium">Predicted value</p>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Applied Decisions</span>
+            <span className="text-xs font-medium text-slate-500">Applied Actions</span>
             <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <ShieldCheck className="w-4 h-4" />
             </div>
@@ -303,7 +307,22 @@ export const RecommendationsPage = () => {
           <p className="text-2xl font-bold text-slate-800 mt-2">
             {summary?.appliedCount ?? '—'}
           </p>
-          <p className="text-[11px] text-indigo-600 mt-1 font-medium">Consequential actions executed</p>
+          <p className="text-[11px] text-indigo-600 mt-1 font-medium">Executed orders</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-slate-500">Realized ROI</span>
+            <div className="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-slate-800 mt-2">
+            {formatCurrency(roiSummary?.totalRealizedImpact || 0, currency)}
+          </p>
+          <p className="text-[11px] text-teal-700 mt-1 font-medium">
+            {roiSummary?.realizedCount || 0} verified outcomes
+          </p>
         </div>
       </div>
 
@@ -492,6 +511,26 @@ export const RecommendationsPage = () => {
                             <span className="text-emerald-800 text-[11px] ml-1.5">
                               — {rec.estimatedImpact.explanation}
                             </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Post-Action Realized Impact & ROI Tracking */}
+                      {rec.impactTracking?.outcomeStatus && (
+                        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-teal-50/70 border border-teal-200/80 text-xs">
+                          <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
+                          <div className="flex-1">
+                            <span className="font-semibold text-teal-950">
+                              Post-Action Outcome ({rec.impactTracking.outcomeStatus}):{' '}
+                            </span>
+                            <span className="font-bold text-teal-700">
+                              {formatCurrency(rec.impactTracking.realizedAmount, currency)}
+                            </span>
+                            {rec.impactTracking.notes && (
+                              <span className="text-teal-800 text-[11px] ml-1.5">
+                                — {rec.impactTracking.notes}
+                              </span>
+                            )}
                           </div>
                         </div>
                       )}

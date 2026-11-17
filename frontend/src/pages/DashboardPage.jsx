@@ -13,6 +13,7 @@ import {
   Sparkles,
   ShieldAlert,
   BrainCircuit,
+  FileDown,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -46,6 +47,35 @@ export const DashboardPage = () => {
   const [kpis, setKpis] = useState(null)
   const [revenueTrend, setRevenueTrend] = useState([])
   const [categoryBreakdown, setCategoryBreakdown] = useState([])
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+
+  const handleDownloadPdf = async () => {
+    try {
+      setDownloadingPdf(true)
+      const token = localStorage.getItem('opsmind_token')
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
+      const response = await fetch(`${baseUrl}/reports/executive-summary/pdf`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      if (!response.ok) throw new Error('Failed to generate PDF')
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `OpsMind-Executive-Report-${new Date().toISOString().slice(0, 10)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (err) {
+      console.error('PDF generation error:', err)
+      alert('Could not generate PDF report. Please verify backend connection.')
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true)
@@ -108,8 +138,18 @@ export const DashboardPage = () => {
           </p>
         </div>
 
-        {/* Period Filter Dropdown */}
+        {/* Period Filter Dropdown & PDF Export */}
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold bg-indigo-50 border border-indigo-200/90 text-indigo-700 hover:bg-indigo-100/80 rounded-xl transition shadow-2xs disabled:opacity-50 cursor-pointer"
+            title="Download executive monthly PDF report"
+          >
+            <FileDown className="w-3.5 h-3.5 text-indigo-600" />
+            <span>{downloadingPdf ? 'Exporting PDF...' : 'Export PDF Report'}</span>
+          </button>
+
           <div className="relative">
             <select
               value={period}

@@ -54,3 +54,13 @@ export const retrainModel = catchAsync(async (req, res) => {
   const result = await mlService.retrainModel(modelName)
   return successResponse(res, result, `Model ${modelName} retrained successfully`)
 })
+
+export const getAdvancedDemandForecast = catchAsync(async (req, res) => {
+  const result = await mlService.getAdvancedDemandForecast(req.body || {})
+  return successResponse(res, result, 'Advanced demand forecast generated successfully')
+})
+
+export const getModelMonitoringHealth = catchAsync(async (req, res) => {
+  const result = await mlService.getModelMonitoringHealth()
+  return successResponse(res, result, 'ML model governance and monitoring metrics retrieved')
+})

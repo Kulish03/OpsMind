@@ -165,7 +165,26 @@ export const determineSemanticIntent = (query) => {
     }
   }
 
-  // 9. Customer Insights & Directory
+  // 9. Business Policy & Contract Documents RAG
+  if (
+    q.includes('policy') ||
+    q.includes('return policy') ||
+    q.includes('refund') ||
+    q.includes('terms') ||
+    q.includes('contract') ||
+    q.includes('warranty') ||
+    q.includes('sla') ||
+    q.includes('agreement') ||
+    q.includes('clause') ||
+    q.includes('store rules')
+  ) {
+    return {
+      toolName: 'query_business_documents',
+      args: { query, limit: 3 },
+    }
+  }
+
+  // 10. Customer Insights & Directory
   if (
     q.includes('customer') ||
     q.includes('buyer') ||
@@ -178,7 +197,7 @@ export const determineSemanticIntent = (query) => {
     }
   }
 
-  // 10. Operational Alerts
+  // 11. Operational Alerts
   if (
     q.includes('alert') ||
     q.includes('warning') ||
@@ -191,7 +210,7 @@ export const determineSemanticIntent = (query) => {
     }
   }
 
-  // 11. Recommendations & Action Items
+  // 12. Recommendations & Action Items
   if (
     q.includes('recommendation') ||
     q.includes('what should i do') ||
@@ -207,7 +226,7 @@ export const determineSemanticIntent = (query) => {
     }
   }
 
-  // 12. Recommendation Decision & Audit Log Trail
+  // 13. Recommendation Decision & Audit Log Trail
   if (
     q.includes('audit log') ||
     q.includes('decision log') ||
@@ -222,7 +241,22 @@ export const determineSemanticIntent = (query) => {
     }
   }
 
-  // 13. Sales Analytics (Default for revenue, sales, AOV, performance)
+  // 14. Supplier Lead-Time Variance & Reliability
+  if (
+    q.includes('supplier lead') ||
+    q.includes('vendor lead') ||
+    q.includes('supplier performance') ||
+    q.includes('vendor delay') ||
+    q.includes('supplier reliability') ||
+    q.includes('on-time delivery')
+  ) {
+    return {
+      toolName: 'get_supplier_performance',
+      args: {},
+    }
+  }
+
+  // 15. Sales Analytics (Default for revenue, sales, AOV, performance)
   if (
     q.includes('revenue') ||
     q.includes('sale') ||
@@ -472,6 +506,33 @@ Model: ${toolResult.modelPerformance?.algorithm} (ROC-AUC: **${toolResult.modelP
         text += `   - New Status: \`${l.newStatus || 'N/A'}\`\n`
         if (l.notes) text += `   - Notes: *${l.notes}*\n`
         text += `\n`
+      })
+      return text
+    }
+
+    case 'query_business_documents': {
+      const excerpts = toolResult.excerpts || []
+      if (excerpts.length === 0) {
+        return `📄 **No Matching Policy Excerpts:** I searched your indexed business policies and agreements for *"${toolResult.query}"*, but found no matching clauses. You can upload relevant documents in the Documents manager.`
+      }
+      let text = `### 📄 Grounded Business Document Excerpts (RAG)\n\n`
+      text += `Found **${toolResult.totalMatches} relevant excerpt(s)** matching your inquiry:\n\n`
+      excerpts.forEach((e, idx) => {
+        text += `#### ${idx + 1}. ${e.documentTitle} [Category: ${e.category}]\n`
+        text += `> "${e.excerptText}"\n\n`
+      })
+      text += `*Source: Verified internal SME document repository.*`
+      return text
+    }
+
+    case 'get_supplier_performance': {
+      const sups = toolResult.suppliers || []
+      let text = `### 🚚 Supplier Lead-Time Variance & Reliability Analysis\n\n`
+      text += `Evaluated **${toolResult.totalSuppliersEvaluated} vendor(s)**. Average SLA Variance: **${toolResult.averageSlaVarianceDays} days** (High Risk: ${toolResult.highRiskSuppliersCount})\n\n`
+      sups.forEach((s, idx) => {
+        text += `${idx + 1}. **${s.name}** (${s.category})\n`
+        text += `   - **Stated SLA:** ${s.statedLeadTime} | **Observed Avg:** ${s.observedAvgLeadTime} (Variance: **${s.variance}**)\n`
+        text += `   - **On-Time Delivery:** ${s.onTimeRate} | **Reliability Tier:** Tier **${s.reliabilityTier}** [${s.riskLevel} Risk]\n\n`
       })
       return text
     }

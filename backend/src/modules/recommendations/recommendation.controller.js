@@ -75,3 +75,21 @@ export const getAuditLogs = catchAsync(async (req, res) => {
   const result = await recommendationService.getAuditLogs(req.businessId, req.query)
   return successResponse(res, result, 'Recommendation audit logs retrieved successfully')
 })
+
+/**
+ * Measure and record realized financial impact of applied action
+ * POST /api/recommendations/:id/track-impact
+ */
+export const trackImpact = catchAsync(async (req, res) => {
+  const result = await recommendationService.trackRecommendationImpact(req.params.id, req.businessId)
+  return successResponse(res, result, 'Recommendation impact measured and verified successfully')
+})
+
+/**
+ * Aggregate realized financial ROI across all applied recommendations
+ * GET /api/recommendations/roi/summary
+ */
+export const getROISummary = catchAsync(async (req, res) => {
+  const result = await recommendationService.getRecommendationROISummary(req.businessId)
+  return successResponse(res, result, 'Recommendation ROI summary retrieved successfully')
+})

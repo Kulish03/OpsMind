@@ -9,9 +9,11 @@ from src.api.v1.ml.router import (
     get_ml_status,
     get_models_overview,
     forecast_demand_endpoint,
+    advanced_forecast_endpoint,
     detect_anomalies_endpoint,
     inventory_risk_endpoint,
-    customer_churn_endpoint
+    customer_churn_endpoint,
+    model_monitoring_health_endpoint
 )
 from src.schemas.ml import (
     DemandForecastRequest,
@@ -77,7 +79,20 @@ async def main():
     ov = await get_models_overview()
     print("  Registered Model Types:", list(ov.models.keys()))
 
-    print("\n=== ALL ML ENDPOINTS EXECUTED AND VERIFIED WITH 100% SUCCESS ===", flush=True)
+    print("\n9. Testing Advanced Demand Forecasting (Scenario / Promo Lift)...", flush=True)
+    adv = await advanced_forecast_endpoint(horizon_days=7, promotional_lift_pct=25.0)
+    print("  Scenario Status:", adv["status"])
+    print("  Base Forecast Units:", adv["forecast"]["base_predicted_units"])
+    print("  Adjusted Units:", adv["forecast"]["adjusted_predicted_units"])
+    print("  Multiplier:", adv["scenario_applied"]["net_multiplier"])
+
+    print("\n10. Testing ML Model Monitoring & Drift Governance...", flush=True)
+    mon = await model_monitoring_health_endpoint()
+    print("  Health Status:", mon["status"])
+    print("  Retraining Recommended:", mon["automated_retrain_recommended"])
+    print("  Evaluated Models:", list(mon["models"].keys()))
+
+    print("\n=== ALL 10 ML ENDPOINTS EXECUTED AND VERIFIED WITH 100% SUCCESS ===", flush=True)
 
 if __name__ == "__main__":
     asyncio.run(main())

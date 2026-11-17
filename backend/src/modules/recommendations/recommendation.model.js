@@ -119,6 +119,20 @@ const recommendationSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.Mixed,
       },
     },
+    impactTracking: {
+      status: {
+        type: String,
+        enum: ['NOT_TRACKED', 'TRACKING', 'REALIZED'],
+        default: 'NOT_TRACKED',
+      },
+      baselineValue: { type: Number, default: 0 },
+      currentValue: { type: Number, default: 0 },
+      realizedImpactAmount: { type: Number, default: 0 },
+      currency: { type: String, default: 'GBP' },
+      trackedSince: { type: Date },
+      lastEvaluatedAt: { type: Date },
+      notes: { type: String, default: '' },
+    },
   },
   {
     timestamps: true,

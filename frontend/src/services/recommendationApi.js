@@ -29,3 +29,13 @@ export const getRecommendationAuditLogs = async (params = {}) => {
   const res = await api.get('/recommendations/audit', { params })
   return res.data
 }
+
+export const getRecommendationROISummary = async () => {
+  const res = await api.get('/recommendations/roi/summary')
+  return res.data
+}
+
+export const trackRecommendationImpact = async (id, payload) => {
+  const res = await api.post(`/recommendations/${id}/track-impact`, payload)
+  return res.data
+}

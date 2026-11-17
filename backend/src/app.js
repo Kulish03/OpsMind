@@ -20,6 +20,10 @@ import alertRouter from './modules/notifications/alert.routes.js'
 import mlRouter from './modules/ml/ml.routes.js'
 import copilotRouter from './modules/copilot/copilot.routes.js'
 import recommendationRouter from './modules/recommendations/recommendation.routes.js'
+import importRouter from './modules/business/import.routes.js'
+import reportRouter from './modules/reports/report.routes.js'
+import documentRouter from './modules/documents/document.routes.js'
+import integrationsRouter from './modules/integrations/webhook.routes.js'
 
 const app = express()
 
@@ -48,6 +52,7 @@ app.use(
 // Request Body Size Limits (1MB default to prevent memory exhaustion / DoS)
 app.use(express.json({ limit: '1mb' }))
 app.use(express.urlencoded({ extended: true, limit: '1mb' }))
+app.use(express.text({ type: ['text/plain', 'text/csv'], limit: '5mb' }))
 
 // Rate Limiting Guards
 app.use('/api/auth/login', authLimiter)
@@ -74,6 +79,10 @@ app.use('/api/alerts', alertRouter)
 app.use('/api/ml', mlRouter)
 app.use('/api/copilot', copilotRouter)
 app.use('/api/recommendations', recommendationRouter)
+app.use('/api/import', importRouter)
+app.use('/api/reports', reportRouter)
+app.use('/api/documents', documentRouter)
+app.use('/api/integrations', integrationsRouter)
 
 // Service Identification & Integrated System Health Check
 app.get('/api/health', async (req, res) => {

@@ -22,4 +22,7 @@ router.get('/revenue-vs-expense', analyticsController.getRevenueVsExpenseCompari
 router.get('/date-comparison', analyticsController.getDateOverDateComparison)
 router.get('/product-deep-dive', analyticsController.getProductAndCategoryDeepDive)
 
+// Phase 9: Supplier Lead-Time Variance & Reliability Analysis
+router.get('/suppliers/lead-time', analyticsController.getSupplierLeadTimeAnalytics)
+
 export default router

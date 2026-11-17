@@ -1,8 +1,8 @@
 # OpsMind — AI-Powered Operations Copilot for SMEs
 
 [![Status](https://img.shields.io/badge/status-production--ready-emerald.svg)](https://github.com/Kulish03/OpsMind)
-[![Backend Tests](https://img.shields.io/badge/backend%20tests-85%2F85%20passing-brightgreen.svg)](backend/)
-[![ML Evaluation](https://img.shields.io/badge/ML%20models-evaluated%20%26%20verified-blue.svg)](ml_service/)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-104%2F104%20passing-brightgreen.svg)](backend/)
+[![ML Evaluation](https://img.shields.io/badge/ML%20models-10%2F10%20endpoints%20verified-blue.svg)](ml_service/)
 [![License](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 
 **OpsMind** is an intelligent, multi-tenant operations platform tailored for Small and Medium Enterprises (SMEs). It unifies core business operations—sales, inventory, operating expenses, customers, and suppliers—with evaluated machine learning forecasting, anomaly detection, a zero-hallucination AI business copilot, and human-in-the-loop actionable recommendations.
@@ -90,16 +90,29 @@ graph TD
 * **Consequential Operations Guardrail:** Purchasing and stock adjustments require explicit human review and confirmation (`confirmed: true`) before execution.
 * **Immutable Audit Trail:** All decisions, dismissals, and executions are permanently logged with user ID, name, role, timestamp, and payload.
 
+### 6. Phase 9 Advanced Features (Enterprise Operations)
+* **Bulk CSV & Spreadsheet Ingestion:** High-speed, zero-dependency parser for importing products, sales, customers, and expenses in bulk (`POST /api/import/:entityType`).
+* **Executive PDF Business Reports:** Vector-rendered, publication-ready executive monthly audit reports with one-click export from the Dashboard (`GET /api/reports/executive-summary/pdf`).
+* **RAG Business Documents & Store Policies:** Semantic chunking and TF-IDF search indexing store policies, return rules, and supplier contracts, fully grounded in the AI Copilot (`query_business_documents`).
+* **Supplier SLA & Lead-Time Analysis:** Automated tracking of vendor on-time delivery rates, observed transit variance, and reliability tier ratings (A/B/C/D) (`GET /api/analytics/suppliers/lead-time`).
+* **Advanced RBAC Permissions:** Four-tier access hierarchy (`admin`, `manager`, `accountant`, `staff`) with consequential action gates protecting financial reports and purchasing workflows.
+* **Automated Scheduled Reports:** Recurring executive digests and operational alert emails on configurable schedules (`DAILY`, `WEEKLY`, `MONTHLY`) (`/api/reports/schedules`).
+* **Advanced Demand Forecasting:** Scenario simulations integrating promotional lifts, holiday spikes, and price elasticity multipliers (`POST /api/ml/forecast/advanced`).
+* **ML Drift Monitoring & Governance:** Automated Kolmogorov-Smirnov and KL-divergence feature drift scoring with automated retraining recommendations (`GET /api/ml/monitoring`).
+* **POS & Accounting Webhooks:** Real-time webhooks connecting POS cash registers (with automated stock deduction and movement audit logging) and accounting expense bills (`/api/integrations`).
+* **Recommendation Impact Tracking & ROI:** Realized outcome tracking measuring true financial value against ML estimates with aggregate ROI summaries (`GET /api/recommendations/roi/summary`).
+
 ---
 
 ## 🔒 Security Architecture
 
 | Security Layer | Implementation Details |
 | :--- | :--- |
-| **Authentication** | Stateless JWT tokens (HMAC-SHA256) with role-based permissions (`admin`, `staff`). |
+| **Authentication & RBAC** | Stateless JWT tokens (HMAC-SHA256) with granular 4-tier roles (`admin`, `manager`, `accountant`, `staff`). |
 | **Multi-Tenant Isolation** | Strict server-side tenancy enforcement (`enforceTenantScope` middleware) isolating all database operations to `req.businessId`. |
+| **Consequential Guards** | Sensitive actions (purchase order creation, model retraining) gated by `authorizeRoles('admin', 'manager')`. |
 | **Rate Limiting** | Tiered rate limiters: General API (100 req/15m), Auth routes (15 req/15m), AI Copilot (30 req/m). |
-| **Request Size Limits** | Explicit 1 MB payload ceiling on `express.json` and `express.urlencoded` preventing DoS attacks. |
+| **Request Size Limits** | Explicit payload ceilings (1MB JSON, 5MB CSV import) preventing memory exhaustion and DoS attacks. |
 | **CORS Policy** | Production multi-origin validation supporting Vercel, Render, and custom domains with credentials. |
 | **Security Headers** | Helmet-configured HTTP security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`). |
 

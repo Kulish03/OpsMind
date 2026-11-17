@@ -33,7 +33,7 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: {
-        values: ['admin', 'manager', 'staff'],
+        values: ['admin', 'manager', 'accountant', 'staff'],
         message: '{VALUE} is not a supported role',
       },
       default: 'manager',

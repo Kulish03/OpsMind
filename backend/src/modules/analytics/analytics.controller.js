@@ -91,3 +91,12 @@ export const getProductAndCategoryDeepDive = catchAsync(async (req, res) => {
   const result = await analyticsService.getProductAndCategoryDeepDive(req.businessId, req.query)
   return successResponse(res, result, 'Product and category deep dive analysis retrieved successfully')
 })
+
+/**
+ * Phase 9: Supplier Lead-Time Variance & Reliability Analysis
+ * GET /api/analytics/suppliers/lead-time
+ */
+export const getSupplierLeadTimeAnalytics = catchAsync(async (req, res) => {
+  const result = await analyticsService.getSupplierLeadTimeAnalytics(req.businessId)
+  return successResponse(res, result, 'Supplier lead-time analytics retrieved successfully')
+})
